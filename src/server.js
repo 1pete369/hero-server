@@ -12,8 +12,8 @@ const server = http.createServer(app);
 
 connectDB()
   .then(() => {
-    server.listen(PORT, () => {
-      console.log("Auth server started on port", PORT);
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`Auth server listening on 0.0.0.0:${PORT} (NODE_ENV=${process.env.NODE_ENV || "development"})`);
     });
   })
   .catch((err) => {
