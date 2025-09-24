@@ -3,6 +3,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.route.js";
+import taskRoutes from "./routes/task.route.js";
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
 app.get("/api/healthz", (_req, res) => res.status(200).send("OK"));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/task", taskRoutes);
 
 // 404
 app.use((req, res) => {
