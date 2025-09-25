@@ -4,6 +4,8 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.route.js";
 import taskRoutes from "./routes/task.route.js";
+import habitRoutes from "./routes/habit.route.js";
+import goalRoutes from "./routes/goal.route.js";
 
 dotenv.config();
 
@@ -43,6 +45,8 @@ app.get("/api/healthz", (_req, res) => res.status(200).send("OK"));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/task", taskRoutes);
+app.use("/api/goal", goalRoutes);
+app.use("/api/habit", habitRoutes);
 
 // 404
 app.use((req, res) => {
