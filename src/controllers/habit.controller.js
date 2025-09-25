@@ -2,6 +2,52 @@ import Habit from "../models/habit.model.js"
 import Goal from "../models/goal.model.js"
 import { updateGoalProgress } from "../helpers/goal.helper.js"
 
+// Normalize a Date/ISO string to YYYY-MM-DD
+const toISODate = (d) => new Date(d).toISOString().split("T")[0]
+
+// Compute current streak ending today (consecutive days up to today)
+const computeCurrentStreak = (isoDatesSet) => {
+  let streak = 0
+  const today = new Date()
+  for (;;) {
+    const dateStr = new Date(today.getFullYear(), today.getMonth(), today.getDate() - streak)
+    const iso = dateStr.toISOString().split("T")[0]
+    if (isoDatesSet.has(iso)) {
+      streak += 1
+      continue
+    }
+    break
+  }
+  return streak
+}
+
+// Compute longest consecutive streak in provided YYYY-MM-DD set
+const computeLongestStreak = (isoDates) => {
+  if (isoDates.length === 0) return 0
+  const set = new Set(isoDates)
+  let longest = 0
+  for (const d of set) {
+    // If previous day is not present, start a chain
+    const [y, m, da] = d.split("-").map(Number)
+    const prev = new Date(y, m - 1, da - 1).toISOString().split("T")[0]
+    if (!set.has(prev)) {
+      // Walk forward
+      let length = 1
+      let curY = y, curM = m - 1, curD = da
+      for (;;) {
+        const next = new Date(curY, curM, curD + 1).toISOString().split("T")[0]
+        if (set.has(next)) {
+          length += 1
+          const [ny, nm, nd] = next.split("-").map(Number)
+          curY = ny; curM = nm - 1; curD = nd
+        } else break
+      }
+      if (length > longest) longest = length
+    }
+  }
+  return longest
+}
+
 export const createHabit = async (req, res) => {
   try {
     const {
@@ -105,8 +151,7 @@ export const toggleHabitCompleted = async (req, res) => {
     const habit = await Habit.findOne({ _id: id, userId })
     if (!habit) return res.status(404).json({ error: "Habit not found" })
 
-    const today = new Date().toISOString()
-    const todayDate = new Date(today).toISOString().split("T")[0]
+    const todayDate = new Date().toISOString().split("T")[0]
 
     const isMarked = habit.completedDates.some(
       (date) => new Date(date).toISOString().split("T")[0] === todayDate
@@ -121,6 +166,17 @@ export const toggleHabitCompleted = async (req, res) => {
       habit.completedDates.push(new Date().toISOString())
       habit.lastCompletedAt = new Date()
     }
+
+    // Recompute streaks
+    const isoDates = habit.completedDates
+      .map((d) => toISODate(d))
+      .sort()
+    const isoSet = new Set(isoDates)
+    const currentStreak = computeCurrentStreak(isoSet)
+    const longestStreak = Math.max(habit.longestStreak || 0, computeLongestStreak(isoDates))
+
+    habit.streak = currentStreak
+    habit.longestStreak = longestStreak
 
     await habit.save()
 
