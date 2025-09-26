@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.route.js";
 import taskRoutes from "./routes/task.route.js";
 import habitRoutes from "./routes/habit.route.js";
 import goalRoutes from "./routes/goal.route.js";
+import uploadRoutes from "./routes/upload.route.js";
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/task", taskRoutes);
 app.use("/api/goal", goalRoutes);
 app.use("/api/habit", habitRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // 404
 app.use((req, res) => {

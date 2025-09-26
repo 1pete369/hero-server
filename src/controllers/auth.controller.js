@@ -81,4 +81,55 @@ export const checkAuth = (req, res) => {
   }
 };
 
+export const updateProfile = async (req, res) => {
+  const { fullName, username, email, profilePic } = req.body;
+  const userId = req.user._id;
+  
+  try {
+    // Check if email is being changed and if it's already taken
+    if (email && email !== req.user.email) {
+      const existingEmail = await User.findOne({ email, _id: { $ne: userId } });
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already in use" });
+      }
+    }
+    
+    // Check if username is being changed and if it's already taken
+    if (username && username !== req.user.username) {
+      const existingUsername = await User.findOne({ username, _id: { $ne: userId } });
+      if (existingUsername) {
+        return res.status(400).json({ message: "Username already taken" });
+      }
+    }
+    
+    // Update user profile
+    const updateData = {};
+    if (fullName) updateData.fullName = fullName;
+    if (username) updateData.username = username;
+    if (email) updateData.email = email;
+    if (profilePic !== undefined) updateData.profilePic = profilePic;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, select: '-password' }
+    );
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    return res.status(200).json({
+      _id: updatedUser._id,
+      fullName: updatedUser.fullName,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      profilePic: updatedUser.profilePic,
+    });
+  } catch (err) {
+    console.error("Error in updateProfile controller", err.message);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 
