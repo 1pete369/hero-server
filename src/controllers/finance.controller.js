@@ -247,6 +247,8 @@ export const getFinancialSummary = async (req, res) => {
       },
       { $sort: { total: -1 } },
     ]);
+    
+    console.log("Category breakdown from database:", categoryBreakdown);
 
     // Get recent transactions
     const recentTransactions = await Finance.find(dateFilter)
