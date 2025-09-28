@@ -111,6 +111,7 @@ const shouldBeCompletedOnDate = (habit, dateStr) => {
 // Check for missed days and reset streaks if necessary
 const checkAndResetStreaks = async (habits) => {
   const today = new Date().toISOString().split('T')[0]
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   
   for (const habit of habits) {
     let needsUpdate = false
@@ -118,31 +119,16 @@ const checkAndResetStreaks = async (habits) => {
       habit.completedDates.map(d => new Date(d).toISOString().split('T')[0])
     )
     
-    // Check for missed days in the past week (for daily habits) or since last completion
-    let missedDays = 0
-    let checkDate = new Date(today)
+    // Check if habit was completed today
+    const completedToday = completedDatesSet.has(today)
     
-    // Go back up to 7 days to check for missed days
-    for (let i = 1; i <= 7; i++) {
-      checkDate.setDate(checkDate.getDate() - 1)
-      const dateStr = checkDate.toISOString().split('T')[0]
-      
-      // Skip if we've already found a completed day (streak is intact)
-      if (completedDatesSet.has(dateStr)) {
-        break
-      }
-      
-      // If this date should have been completed but wasn't, it's a missed day
-      if (shouldBeCompletedOnDate(habit, dateStr)) {
-        missedDays++
-      }
-    }
-    
-    // If there are missed days, reset the streak
-    if (missedDays > 0) {
+    // Only reset streak if:
+    // 1. Habit wasn't completed today AND
+    // 2. Habit should have been completed yesterday but wasn't
+    if (!completedToday && shouldBeCompletedOnDate(habit, yesterday) && !completedDatesSet.has(yesterday)) {
       habit.streak = 0
       needsUpdate = true
-      console.log(`Habit "${habit.title}" streak reset to 0 - missed ${missedDays} day(s)`)
+      console.log(`Habit "${habit.title}" streak reset to 0 - missed yesterday (${yesterday})`)
     }
     
     if (needsUpdate) {
