@@ -84,10 +84,84 @@ export const createHabit = async (req, res) => {
   }
 }
 
+// Check if a habit should be completed on a specific date based on its frequency
+const shouldBeCompletedOnDate = (habit, dateStr) => {
+  if (habit.frequency === 'daily') {
+    return true
+  }
+  
+  if (habit.frequency === 'weekly') {
+    const dayOfWeek = new Date(dateStr).getDay() // 0 = Sunday, 1 = Monday, etc.
+    const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+    const targetDay = dayNames[dayOfWeek]
+    return habit.days && habit.days.includes(targetDay)
+  }
+  
+  if (habit.frequency === 'monthly') {
+    // For monthly habits, check if it's the same day of the month as startDate
+    const startDate = new Date(habit.startDate)
+    const startDay = startDate.getDate()
+    const checkDate = new Date(dateStr)
+    return checkDate.getDate() === startDay
+  }
+  
+  return false
+}
+
+// Check for missed days and reset streaks if necessary
+const checkAndResetStreaks = async (habits) => {
+  const today = new Date().toISOString().split('T')[0]
+  
+  for (const habit of habits) {
+    let needsUpdate = false
+    const completedDatesSet = new Set(
+      habit.completedDates.map(d => new Date(d).toISOString().split('T')[0])
+    )
+    
+    // Check for missed days in the past week (for daily habits) or since last completion
+    let missedDays = 0
+    let checkDate = new Date(today)
+    
+    // Go back up to 7 days to check for missed days
+    for (let i = 1; i <= 7; i++) {
+      checkDate.setDate(checkDate.getDate() - 1)
+      const dateStr = checkDate.toISOString().split('T')[0]
+      
+      // Skip if we've already found a completed day (streak is intact)
+      if (completedDatesSet.has(dateStr)) {
+        break
+      }
+      
+      // If this date should have been completed but wasn't, it's a missed day
+      if (shouldBeCompletedOnDate(habit, dateStr)) {
+        missedDays++
+      }
+    }
+    
+    // If there are missed days, reset the streak
+    if (missedDays > 0) {
+      habit.streak = 0
+      needsUpdate = true
+      console.log(`Habit "${habit.title}" streak reset to 0 - missed ${missedDays} day(s)`)
+    }
+    
+    if (needsUpdate) {
+      await habit.save()
+    }
+  }
+}
+
 export const getAllHabits = async (req, res) => {
   try {
     const habits = await Habit.find({ userId: req.user._id }).populate("linkedGoalId")
-    res.status(200).json(habits)
+    
+    // Check for missed days and reset streaks if necessary
+    await checkAndResetStreaks(habits)
+    
+    // Re-fetch habits to get updated streak values
+    const updatedHabits = await Habit.find({ userId: req.user._id }).populate("linkedGoalId")
+    
+    res.status(200).json(updatedHabits)
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch habits", details: err.message })
   }
