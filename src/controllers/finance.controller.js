@@ -96,7 +96,8 @@ export const createTransaction = async (req, res) => {
       // If date is in YYYY-MM-DD format, create date at local midnight
       if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [year, month, day] = date.split('-').map(Number);
-        transactionDate = new Date(year, month - 1, day);
+        // Use noon UTC to avoid day shifting across timezones
+        transactionDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       } else {
         transactionDate = new Date(date);
       }
@@ -154,7 +155,7 @@ export const updateTransaction = async (req, res) => {
     if (updateData.date) {
       if (typeof updateData.date === 'string' && updateData.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [year, month, day] = updateData.date.split('-').map(Number);
-        updateData.date = new Date(year, month - 1, day);
+        updateData.date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       } else {
         updateData.date = new Date(updateData.date);
       }
