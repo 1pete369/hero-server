@@ -19,12 +19,30 @@ export const signup = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Generate a unique referral code
+    const generateReferralCode = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let result = '';
+      for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    };
+
+    let referralCode;
+    let isUnique = false;
+    while (!isUnique) {
+      referralCode = generateReferralCode();
+      const existing = await User.findOne({ referralCode });
+      if (!existing) isUnique = true;
+    }
+
     const newUser = await User.create({ 
       fullName, 
       email, 
       username, 
       password: hashedPassword,
-      referralCode: null // Explicitly set to null to avoid index issues
+      referralCode
     });
     sendTokenViaCookie(res, newUser._id);
     return res.status(201).json({
