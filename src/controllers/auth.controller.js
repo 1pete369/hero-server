@@ -30,7 +30,12 @@ export const signup = async (req, res) => {
       createdAt: newUser.createdAt,
     });
   } catch (err) {
-    console.error("Error in signup controller", err.message);
+    console.error("Error in signup controller", err);
+    console.error("Full error details:", {
+      message: err.message,
+      name: err.name,
+      stack: err.stack
+    });
     return res.status(500).json({ message: "Internal server error" });
   }
 };
