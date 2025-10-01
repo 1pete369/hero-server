@@ -16,24 +16,29 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-// Very permissive CORS shim for local dev convenience
+// iOS Safari compatible CORS configuration
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   res.setHeader("Vary", "Origin");
+  
   if (origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
+  
+  // iOS Safari specific headers
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma"
+  );
+  res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
+  
   next();
 });
+
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      req.headers["access-control-request-headers"] ||
-        "Content-Type, Authorization, X-Requested-With, Accept"
-    );
     return res.status(204).end();
   }
   next();
