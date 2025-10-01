@@ -2,6 +2,34 @@ import Habit from "../models/habit.model.js"
 import Goal from "../models/goal.model.js"
 import { updateGoalProgress } from "../helpers/goal.helper.js"
 
+// ✅ Auto-complete expired habits
+const autoCompleteExpiredHabits = async (userId) => {
+  try {
+    const today = new Date()
+    today.setHours(23, 59, 59, 999) // End of today
+    
+    const expiredHabits = await Habit.find({
+      userId,
+      status: "active",
+      endDate: { $lt: today, $ne: null }
+    })
+    
+    if (expiredHabits.length > 0) {
+      await Habit.updateMany(
+        { _id: { $in: expiredHabits.map(h => h._id) } },
+        { 
+          $set: { 
+            status: "completed"
+          } 
+        }
+      )
+      console.log(`Auto-completed ${expiredHabits.length} expired habits for user ${userId}`)
+    }
+  } catch (err) {
+    console.error("Error auto-completing expired habits:", err)
+  }
+}
+
 // Normalize a Date/ISO string to YYYY-MM-DD
 const toISODate = (d) => new Date(d).toISOString().split("T")[0]
 
@@ -139,6 +167,9 @@ const checkAndResetStreaks = async (habits) => {
 
 export const getAllHabits = async (req, res) => {
   try {
+    // First, auto-complete expired habits
+    await autoCompleteExpiredHabits(req.user._id)
+    
     const habits = await Habit.find({ userId: req.user._id }).populate("linkedGoalId")
     
     // Check for missed days and reset streaks if necessary
@@ -160,6 +191,17 @@ export const updateHabit = async (req, res) => {
 
     const currentHabit = await Habit.findOne({ _id: req.params.id, userId: req.user._id })
     if (!currentHabit) return res.status(404).json({ error: "Habit not found" })
+
+    // Check if habit is expired and prevent editing
+    const today = new Date()
+    today.setHours(23, 59, 59, 999) // End of today
+    
+    if (currentHabit.status === "completed" && currentHabit.endDate && currentHabit.endDate < today) {
+      return res.status(400).json({ 
+        error: "Cannot edit expired habit", 
+        message: "This habit has passed its deadline and is marked as completed. Editing is disabled." 
+      })
+    }
 
     const oldLinkedGoalId = currentHabit.linkedGoalId?.toString() || null
     const newLinkedGoalId = updates.linkedGoalId || null

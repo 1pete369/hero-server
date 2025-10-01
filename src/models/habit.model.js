@@ -32,6 +32,10 @@ const habitSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    endDate: {
+      type: Date,
+      default: null,
+    },
     completedDates: {
       type: [Date],
       default: [],
@@ -64,6 +68,11 @@ const habitSchema = new mongoose.Schema(
     isArchived: {
       type: Boolean,
       default: false,
+    },
+    status: {
+      type: String,
+      enum: ["active", "completed", "cancelled"],
+      default: "active",
     },
   },
   { timestamps: true }
