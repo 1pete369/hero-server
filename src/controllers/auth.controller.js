@@ -19,7 +19,13 @@ export const signup = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const newUser = await User.create({ fullName, email, username, password: hashedPassword });
+    const newUser = await User.create({ 
+      fullName, 
+      email, 
+      username, 
+      password: hashedPassword,
+      referralCode: null // Explicitly set to null to avoid index issues
+    });
     sendTokenViaCookie(res, newUser._id);
     return res.status(201).json({
       _id: newUser._id,

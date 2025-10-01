@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema(
     fullName: { type: String, required: true },
     password: { type: String, required: true, minlength: 6 },
     profilePic: { type: String, default: "" },
+    referralCode: { type: String, unique: true, sparse: true, default: null },
   },
   { timestamps: true }
 );
