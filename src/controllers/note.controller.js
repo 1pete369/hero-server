@@ -2,12 +2,13 @@ import Note from "../models/note.model.js";
 
 export const createNote = async (req, res) => {
   try {
-    const { title, content, category = "personal", tags = [], isPinned = false, linkedGoalId, linkedHabitId, linkedTodoId } = req.body;
+    const { title, content, category = "personal", color = "yellow", tags = [], isPinned = false, linkedGoalId, linkedHabitId, linkedTodoId } = req.body;
     const note = await Note.create({
       userId: req.user._id,
       title,
       content,
       category,
+      color,
       tags,
       isPinned,
       linkedGoalId,

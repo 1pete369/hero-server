@@ -6,6 +6,9 @@ const noteSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     content: { type: String, required: true },
     category: { type: String, enum: ["personal", "work", "learning", "ideas"], default: "personal" },
+    color: { type: String, enum: [
+      "yellow", "pink", "blue", "green", "purple", "orange", "gray", "white", "black"
+    ], default: "yellow" },
     tags: { type: [String], default: [] },
     isPinned: { type: Boolean, default: false },
     linkedGoalId: { type: mongoose.Schema.Types.ObjectId, ref: "Goal" },
