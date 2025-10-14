@@ -53,6 +53,7 @@ export const signup = async (req, res) => {
       email: newUser.email,
       profilePic: newUser.profilePic,
       createdAt: newUser.createdAt,
+      provider: "email",
     });
   } catch (err) {
     console.error("Error in signup controller", err);
@@ -82,6 +83,7 @@ export const login = async (req, res) => {
       email: user.email,
       profilePic: user.profilePic,
       createdAt: user.createdAt,
+      provider: "email",
     });
   } catch (err) {
     console.error("Error in login controller", err.message);
@@ -163,6 +165,7 @@ export const updateProfile = async (req, res) => {
       email: updatedUser.email,
       profilePic: updatedUser.profilePic,
       createdAt: updatedUser.createdAt,
+      provider: updatedUser.googleId ? "google" : "email",
     });
   } catch (err) {
     console.error("Error in updateProfile controller", err.message);
@@ -264,6 +267,7 @@ export const googleLogin = async (req, res) => {
       email: user.email,
       profilePic: user.profilePic,
       createdAt: user.createdAt,
+      provider: user.googleId ? "google" : "email",
     });
   } catch (err) {
     console.error("Error in googleLogin controller", err?.message || err);
