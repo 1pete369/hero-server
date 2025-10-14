@@ -111,7 +111,8 @@ export const logout = (_req, res) => {
 export const checkAuth = (req, res) => {
   try {
     const provider = req.user?.googleId ? "google" : "email";
-    return res.status(200).json({ ...req.user, provider });
+    const user = req.user?.toObject ? req.user.toObject() : req.user;
+    return res.status(200).json({ ...user, provider });
   } catch (err) {
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -242,13 +243,16 @@ export const googleLogin = async (req, res) => {
         googleId,
       });
     } else {
-      // Link Google if not already
+      // Link Google if not already & backfill fields
       if (!user.googleId) {
         user.googleId = googleId;
       }
-      // Update avatar/name opportunistically
       if (profilePic && !user.profilePic) user.profilePic = profilePic;
       if (fullName && !user.fullName) user.fullName = fullName;
+      if (!user.username) {
+        const baseUsername = (email || "user").split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_");
+        user.username = await generateUsername(baseUsername || "user");
+      }
       await user.save();
     }
 
@@ -353,6 +357,10 @@ export const googleOAuthCallback = async (req, res) => {
       if (!user.googleId) user.googleId = googleId;
       if (profilePic && !user.profilePic) user.profilePic = profilePic;
       if (fullName && !user.fullName) user.fullName = fullName;
+      if (!user.username) {
+        const baseUsername = (email || "user").split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_");
+        user.username = await generateUsername(baseUsername || "user");
+      }
       await user.save();
     }
 
