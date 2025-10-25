@@ -24,11 +24,13 @@ const taskSchema = new mongoose.Schema(
     },
     startTime: {
       type: String,
-      required: true,
+      required: false, // allow unscheduled tasks
+      default: null,
     },
     endTime: {
       type: String,
-      required: true,
+      required: false, // allow unscheduled tasks
+      default: null,
     },
     category: {
       type: String,
@@ -66,8 +68,8 @@ const taskSchema = new mongoose.Schema(
     // --- NEW: the scheduled date for the task ---
     scheduledDate: {
       type: Date,
-      required: true,
-      default: () => new Date(),
+      required: false, // allow unscheduled tasks
+      default: null,
     },
     // --- NEW: color for the task card ---
     color: {

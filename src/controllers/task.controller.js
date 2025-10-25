@@ -57,6 +57,10 @@ export const getTaskById = async (req, res) => {
 // 4. Update a task (including scheduledDate)
 export const updateTask = async (req, res) => {
   try {
+    // Normalize scheduledDate if provided as YYYY-MM-DD string
+    if (typeof req.body.scheduledDate === 'string' && req.body.scheduledDate) {
+      req.body.scheduledDate = new Date(req.body.scheduledDate + 'T00:00:00.000Z')
+    }
     const updated = await Task.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
       { $set: req.body },
