@@ -161,6 +161,16 @@ export const updateGoal = async (req, res) => {
       { new: true }
     )
 
+    // Always recalculate progress after an update, since target date or
+    // linked habits may have changed the expected counts
+    if (updated) {
+      try {
+        await updateGoalProgress(updated._id)
+      } catch (calcErr) {
+        console.error("Recalculate progress error:", calcErr)
+      }
+    }
+
     // If goal is marked completed now, finalize linked habits and recalc progress
     if (updated && (updates.status === "completed" || updates.isCompleted === true)) {
       try {

@@ -89,12 +89,20 @@ export const createHabit = async (req, res) => {
       linkedGoalId = null,
     } = req.body
 
+    // Ensure weekly habits have at least one weekday selected; default to startDate's weekday
+    let normalizedDays = Array.isArray(days) ? days : []
+    if (frequency === 'weekly' && normalizedDays.length === 0) {
+      const dow = new Date(startDate).getUTCDay() // 0-6
+      const map = ['sun','mon','tue','wed','thu','fri','sat']
+      normalizedDays = [map[dow]]
+    }
+
     const newHabit = await Habit.create({
       userId: req.user._id,
       title,
       description,
       frequency,
-      days,
+      days: normalizedDays,
       startDate,
       icon,
       category,
@@ -206,6 +214,17 @@ export const updateHabit = async (req, res) => {
     const oldLinkedGoalId = currentHabit.linkedGoalId?.toString() || null
     const newLinkedGoalId = updates.linkedGoalId || null
 
+    // Normalize weekly days if missing/empty
+    if ((updates.frequency === 'weekly') || (currentHabit.frequency === 'weekly' && !updates.frequency)) {
+      const incomingDays = Array.isArray(updates.days) ? updates.days : currentHabit.days
+      if (!incomingDays || incomingDays.length === 0) {
+        const srcDate = updates.startDate ? new Date(updates.startDate) : new Date(currentHabit.startDate)
+        const dow = srcDate.getUTCDay()
+        const map = ['sun','mon','tue','wed','thu','fri','sat']
+        updates.days = [map[dow]]
+      }
+    }
+
     const updatedHabit = await Habit.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
       updates,
@@ -253,11 +272,34 @@ export const toggleHabitCompleted = async (req, res) => {
     const habit = await Habit.findOne({ _id: id, userId })
     if (!habit) return res.status(404).json({ error: "Habit not found" })
 
-    const todayDate = new Date().toISOString().split("T")[0]
+    const today = new Date()
+    const todayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())).toISOString().split("T")[0]
 
     const isMarked = habit.completedDates.some(
       (date) => new Date(date).toISOString().split("T")[0] === todayDate
     )
+
+    // Enforce weekly rules: only the configured weekday; once per week
+    if (habit.frequency === 'weekly') {
+      const map = ['sun','mon','tue','wed','thu','fri','sat']
+      const todayKey = map[new Date().getUTCDay()]
+      const validDay = Array.isArray(habit.days) && habit.days.length > 0 && habit.days.includes(todayKey)
+      if (!validDay) {
+        return res.status(400).json({ error: 'Weekly habit can only be completed on its selected weekday' })
+      }
+      // Check if already completed this week (Mon-Sun window aligned to UTC Sunday start)
+      const d = new Date()
+      const utcDay = d.getUTCDay() // 0..6
+      const startOfWeek = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - utcDay))
+      const endOfWeek = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + (6 - utcDay)))
+      const alreadyThisWeek = habit.completedDates.some(cd => {
+        const x = new Date(cd)
+        return x >= startOfWeek && x <= endOfWeek
+      })
+      if (!isMarked && alreadyThisWeek) {
+        return res.status(400).json({ error: 'Weekly habit already completed this week' })
+      }
+    }
 
     if (isMarked) {
       habit.completedDates = habit.completedDates.filter(

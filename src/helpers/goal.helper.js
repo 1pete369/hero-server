@@ -1,15 +1,21 @@
 import dayjs from "dayjs"
 import minMax from "dayjs/plugin/minMax.js"
+import utc from "dayjs/plugin/utc.js"
 dayjs.extend(minMax)
+dayjs.extend(utc)
 
 import Goal from "../models/goal.model.js"
 
 export const calculateExpectedCompletions = (habit, goalTargetDate) => {
   // Use the later of habit start date or goal start date (if goal has one)
-  const habitStart = dayjs(habit.startDate).startOf("day")
-  const goalStart = dayjs(goalTargetDate).startOf("day") // We'll use goal target date as reference
+  const habitStart = dayjs.utc(habit.startDate).startOf("day")
+  const goalStart = dayjs.utc(goalTargetDate).startOf("day") // reserved for future goal-start support
   const start = habitStart
-  const end = dayjs(goalTargetDate).startOf("day")
+  const end = dayjs.utc(goalTargetDate).startOf("day")
+
+  if (start.isAfter(end)) {
+    return 0
+  }
 
   let count = 0
 
@@ -18,9 +24,11 @@ export const calculateExpectedCompletions = (habit, goalTargetDate) => {
     count = end.diff(start, "day") + 1
   } else if (habit.frequency === "weekly") {
     // For weekly habits, only count days that match the specified days
+    const abbrev = ["sun","mon","tue","wed","thu","fri","sat"]
     let temp = start
     while (temp.isBefore(end) || temp.isSame(end, "day")) {
-      if (habit.days.includes(temp.format("dddd"))) {
+      const dayKey = abbrev[temp.day()]
+      if (Array.isArray(habit.days) && habit.days.includes(dayKey)) {
         count++
       }
       temp = temp.add(1, "day")
@@ -39,11 +47,32 @@ export const updateGoalProgress = async (goalId) => {
   let totalDone = 0
 
   console.log(`\n=== Calculating progress for goal: "${goal.title}" ===`)
-  console.log(`Goal target date: ${dayjs(goal.targetDate).format('YYYY-MM-DD')}`)
+  console.log(`Goal target date: ${dayjs.utc(goal.targetDate).format('YYYY-MM-DD')}`)
 
   for (const habit of goal.linkedHabits) {
     const expected = calculateExpectedCompletions(habit, goal.targetDate)
-    const actual = habit.completedDates.length
+
+    // Count only completions within [start, target] and on scheduled days if weekly
+    const start = dayjs.utc(habit.startDate).startOf("day")
+    const end = dayjs.utc(goal.targetDate).startOf("day")
+    const inWindow = (d) => {
+      const x = dayjs.utc(d).startOf("day")
+      return (x.isAfter(start) || x.isSame(start, "day")) && (x.isBefore(end) || x.isSame(end, "day"))
+    }
+    let actual = 0
+    const abbrev = ["sun","mon","tue","wed","thu","fri","sat"]
+    for (const d of habit.completedDates || []) {
+      if (!inWindow(d)) continue
+      if (habit.frequency === "weekly") {
+        const key = abbrev[dayjs.utc(d).day()]
+        if (Array.isArray(habit.days) && habit.days.includes(key)) actual += 1
+      } else if (habit.frequency === "daily") {
+        actual += 1
+      } else {
+        // Fallback: count it
+        actual += 1
+      }
+    }
     totalExpected += expected
     totalDone += actual
     
