@@ -8,6 +8,7 @@ import habitRoutes from "./routes/habit.route.js";
 import goalRoutes from "./routes/goal.route.js";
 import uploadRoutes from "./routes/upload.route.js";
 import noteRoutes from "./routes/note.route.js";
+import workoutRoutes from "./routes/workout.route.js";
 import financeRoutes from "./routes/finance.route.js";
 
 dotenv.config();
@@ -58,6 +59,7 @@ app.use("/api/habit", habitRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/finance", financeRoutes);
 app.use("/api/note", noteRoutes);
+app.use("/api/workout", workoutRoutes);
 
 // 404
 app.use((req, res) => {
