@@ -65,6 +65,11 @@ const habitSchema = new mongoose.Schema(
       type: String,
       default: "General",
     },
+    color: {
+      type: String,
+      enum: ["blue", "green", "purple", "orange", "red", "pink", "indigo", "teal", "yellow", "gray"],
+      default: "blue",
+    },
     isArchived: {
       type: Boolean,
       default: false,

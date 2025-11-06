@@ -57,6 +57,7 @@ export const createGoal = async (req, res) => {
       targetDate,
       priority,
       category,
+      color,
       linkedHabits = [], // ✅ fallback to empty array
     } = req.body
 
@@ -78,6 +79,7 @@ export const createGoal = async (req, res) => {
       targetDate: normalizedTargetDate,
       priority,
       category,
+      color,
       linkedHabits,
     })
 
@@ -198,14 +200,30 @@ export const updateGoal = async (req, res) => {
 // ✅ Delete a goal
 export const deleteGoal = async (req, res) => {
   try {
-    const deleted = await Goal.findOneAndDelete({
+    // First, find the goal to get its linked habits
+    const goal = await Goal.findOne({
       _id: req.params.id,
       userId: req.user._id,
     })
 
-    if (!deleted) return res.status(404).json({ error: "Goal not found" })
+    if (!goal) return res.status(404).json({ error: "Goal not found" })
 
-    res.status(200).json({ message: "Goal deleted successfully" })
+    // Delete all linked habits
+    if (Array.isArray(goal.linkedHabits) && goal.linkedHabits.length > 0) {
+      try {
+        await Habit.deleteMany({
+          _id: { $in: goal.linkedHabits }
+        })
+        console.log(`Deleted ${goal.linkedHabits.length} linked habits for goal ${goal._id}`)
+      } catch (habitErr) {
+        console.error("Error deleting linked habits:", habitErr)
+      }
+    }
+
+    // Now delete the goal itself
+    await Goal.findByIdAndDelete(goal._id)
+
+    res.status(200).json({ message: "Goal and linked habits deleted successfully" })
   } catch (err) {
     res
       .status(500)

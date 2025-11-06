@@ -54,6 +54,7 @@ export const signup = async (req, res) => {
       profilePic: newUser.profilePic,
       createdAt: newUser.createdAt,
       provider: "email",
+      onboardingCompleted: newUser.onboardingCompleted || false,
     });
   } catch (err) {
     console.error("Error in signup controller", err);
@@ -84,6 +85,7 @@ export const login = async (req, res) => {
       profilePic: user.profilePic,
       createdAt: user.createdAt,
       provider: "email",
+      onboardingCompleted: user.onboardingCompleted || false,
     });
   } catch (err) {
     console.error("Error in login controller", err.message);
@@ -114,7 +116,11 @@ export const checkAuth = (req, res) => {
   try {
     const provider = req.user?.googleId ? "google" : "email";
     const user = req.user?.toObject ? req.user.toObject() : req.user;
-    return res.status(200).json({ ...user, provider });
+    return res.status(200).json({ 
+      ...user, 
+      provider,
+      onboardingCompleted: user.onboardingCompleted || false 
+    });
   } catch (err) {
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -268,6 +274,7 @@ export const googleLogin = async (req, res) => {
       profilePic: user.profilePic,
       createdAt: user.createdAt,
       provider: user.googleId ? "google" : "email",
+      onboardingCompleted: user.onboardingCompleted || false,
     });
   } catch (err) {
     console.error("Error in googleLogin controller", err?.message || err);
@@ -292,7 +299,13 @@ export const googleOAuthStart = async (_req, res) => {
     const authUrl = client.generateAuthUrl({
       access_type: "offline",
       prompt: "select_account",
-      scope: ["openid", "email", "profile"],
+      scope: [
+        "openid", 
+        "email", 
+        "profile",
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
     });
     return res.redirect(authUrl);
   } catch (err) {
@@ -334,6 +347,11 @@ export const googleOAuthCallback = async (req, res) => {
       return candidate;
     };
 
+    // Store Google tokens for Calendar API access
+    const googleAccessToken = tokens.access_token || null;
+    const googleRefreshToken = tokens.refresh_token || null;
+    const googleTokenExpiry = tokens.expiry_date ? new Date(tokens.expiry_date) : null;
+
     if (!user) {
       const baseUsername = (email || "user").split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_");
       const username = await generateUsername(baseUsername || "user");
@@ -356,6 +374,10 @@ export const googleOAuthCallback = async (req, res) => {
         profilePic,
         referralCode,
         googleId,
+        googleAccessToken,
+        googleRefreshToken,
+        googleTokenExpiry,
+        calendarSyncEnabled: !!googleRefreshToken, // Enable sync if we have refresh token
       });
     } else {
       if (!user.googleId) user.googleId = googleId;
@@ -364,6 +386,13 @@ export const googleOAuthCallback = async (req, res) => {
       if (!user.username) {
         const baseUsername = (email || "user").split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_");
         user.username = await generateUsername(baseUsername || "user");
+      }
+      // Update Google tokens
+      if (googleAccessToken) user.googleAccessToken = googleAccessToken;
+      if (googleRefreshToken) user.googleRefreshToken = googleRefreshToken;
+      if (googleTokenExpiry) user.googleTokenExpiry = googleTokenExpiry;
+      if (googleRefreshToken && !user.calendarSyncEnabled) {
+        user.calendarSyncEnabled = true;
       }
       await user.save();
     }

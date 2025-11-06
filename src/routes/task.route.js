@@ -8,6 +8,8 @@ import {
   deleteTask,
   toggleTaskCompletion,
   getTaskAnalytics,
+  startTaskTimer,
+  stopTaskTimer,
 } from "../controllers/task.controller.js"
 import { protectRoute } from "../middleware/auth.middleware.js"
 
@@ -30,5 +32,7 @@ router.get("/:id", getTaskById)
 router.patch("/:id", updateTask)
 router.delete("/:id", deleteTask)
 router.patch("/:id/toggle", toggleTaskCompletion)
+router.post("/:id/timer/start", startTaskTimer)
+router.post("/:id/timer/stop", stopTaskTimer)
 
 export default router

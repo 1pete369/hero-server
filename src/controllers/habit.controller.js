@@ -37,11 +37,22 @@ const toISODate = (d) => new Date(d).toISOString().split("T")[0]
 const computeCurrentStreak = (isoDatesSet) => {
   let streak = 0
   const today = new Date()
+  // Start checking from today, but if today is not completed, check from yesterday
+  let checkDate = new Date(today)
+  const todayISO = checkDate.toISOString().split("T")[0]
+  
+  // If today is not completed, start checking from yesterday
+  if (!isoDatesSet.has(todayISO)) {
+    checkDate = new Date(today)
+    checkDate.setDate(checkDate.getDate() - 1)
+  }
+  
+  // Count backwards from checkDate
   for (;;) {
-    const dateStr = new Date(today.getFullYear(), today.getMonth(), today.getDate() - streak)
-    const iso = dateStr.toISOString().split("T")[0]
+    const iso = checkDate.toISOString().split("T")[0]
     if (isoDatesSet.has(iso)) {
       streak += 1
+      checkDate.setDate(checkDate.getDate() - 1)
       continue
     }
     break
@@ -87,14 +98,24 @@ export const createHabit = async (req, res) => {
       icon = "🎯",
       category,
       linkedGoalId = null,
+      color,
     } = req.body
 
     // Ensure weekly habits have at least one weekday selected; default to startDate's weekday
     let normalizedDays = Array.isArray(days) ? days : []
     if (frequency === 'weekly' && normalizedDays.length === 0) {
-      const dow = new Date(startDate).getUTCDay() // 0-6
+      const dow = new Date(startDate).getDay() // 0-6
       const map = ['sun','mon','tue','wed','thu','fri','sat']
       normalizedDays = [map[dow]]
+    }
+
+    // If linked to a goal, inherit the goal's color
+    let habitColor = color
+    if (linkedGoalId) {
+      const linkedGoal = await Goal.findById(linkedGoalId)
+      if (linkedGoal && linkedGoal.color) {
+        habitColor = linkedGoal.color
+      }
     }
 
     const newHabit = await Habit.create({
@@ -107,6 +128,7 @@ export const createHabit = async (req, res) => {
       icon,
       category,
       linkedGoalId,
+      color: habitColor,
     })
 
     if (linkedGoalId) {
@@ -214,12 +236,20 @@ export const updateHabit = async (req, res) => {
     const oldLinkedGoalId = currentHabit.linkedGoalId?.toString() || null
     const newLinkedGoalId = updates.linkedGoalId || null
 
+    // If linked to a new goal, inherit the goal's color
+    if (newLinkedGoalId && newLinkedGoalId !== oldLinkedGoalId) {
+      const linkedGoal = await Goal.findById(newLinkedGoalId)
+      if (linkedGoal && linkedGoal.color) {
+        updates.color = linkedGoal.color
+      }
+    }
+
     // Normalize weekly days if missing/empty
     if ((updates.frequency === 'weekly') || (currentHabit.frequency === 'weekly' && !updates.frequency)) {
       const incomingDays = Array.isArray(updates.days) ? updates.days : currentHabit.days
       if (!incomingDays || incomingDays.length === 0) {
         const srcDate = updates.startDate ? new Date(updates.startDate) : new Date(currentHabit.startDate)
-        const dow = srcDate.getUTCDay()
+        const dow = srcDate.getDay()
         const map = ['sun','mon','tue','wed','thu','fri','sat']
         updates.days = [map[dow]]
       }
@@ -282,16 +312,18 @@ export const toggleHabitCompleted = async (req, res) => {
     // Enforce weekly rules: only the configured weekday; once per week
     if (habit.frequency === 'weekly') {
       const map = ['sun','mon','tue','wed','thu','fri','sat']
-      const todayKey = map[new Date().getUTCDay()]
+      const todayKey = map[new Date().getDay()]
       const validDay = Array.isArray(habit.days) && habit.days.length > 0 && habit.days.includes(todayKey)
       if (!validDay) {
         return res.status(400).json({ error: 'Weekly habit can only be completed on its selected weekday' })
       }
-      // Check if already completed this week (Mon-Sun window aligned to UTC Sunday start)
+      // Check if already completed this week (Sun-Sat window aligned to local timezone)
       const d = new Date()
-      const utcDay = d.getUTCDay() // 0..6
-      const startOfWeek = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - utcDay))
-      const endOfWeek = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + (6 - utcDay)))
+      const localDay = d.getDay() // 0..6 (0=Sunday)
+      const startOfWeek = new Date(d.getFullYear(), d.getMonth(), d.getDate() - localDay)
+      startOfWeek.setHours(0, 0, 0, 0)
+      const endOfWeek = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (6 - localDay))
+      endOfWeek.setHours(23, 59, 59, 999)
       const alreadyThisWeek = habit.completedDates.some(cd => {
         const x = new Date(cd)
         return x >= startOfWeek && x <= endOfWeek

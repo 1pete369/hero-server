@@ -1,5 +1,11 @@
 // controllers/task.controller.js
 import Task from "../models/task.model.js"
+import User from "../models/user.model.js"
+import {
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} from "../helpers/googleCalendar.helper.js"
 
 // 1. Create a new task
 export const createTask = async (req, res) => {
@@ -13,6 +19,21 @@ export const createTask = async (req, res) => {
     
     const task = new Task(taskData)
     const saved = await task.save()
+
+    // Auto-sync to Google Calendar if enabled
+    try {
+      const user = await User.findById(req.user._id)
+      if (user.calendarSyncEnabled && saved.scheduledDate && saved.startTime && saved.endTime) {
+        const event = await createCalendarEvent(req.user._id, saved)
+        saved.googleCalendarEventId = event.id
+        saved.syncedToCalendar = true
+        await saved.save()
+      }
+    } catch (syncError) {
+      console.error("Failed to sync task to calendar:", syncError)
+      // Don't fail the task creation if calendar sync fails
+    }
+
     res.status(201).json(saved)
   } catch (err) {
     console.error("Create task error:", err)
@@ -68,6 +89,35 @@ export const updateTask = async (req, res) => {
     )
 
     if (!updated) return res.status(404).json({ error: "Task not found" })
+
+    // Auto-sync to Google Calendar if enabled
+    try {
+      const user = await User.findById(req.user._id)
+      if (user.calendarSyncEnabled) {
+        if (updated.scheduledDate && updated.startTime && updated.endTime) {
+          if (updated.googleCalendarEventId) {
+            // Update existing event
+            await updateCalendarEvent(req.user._id, updated, updated.googleCalendarEventId)
+          } else {
+            // Create new event
+            const event = await createCalendarEvent(req.user._id, updated)
+            updated.googleCalendarEventId = event.id
+            updated.syncedToCalendar = true
+            await updated.save()
+          }
+        } else if (updated.googleCalendarEventId) {
+          // Task no longer has scheduling, remove from calendar
+          await deleteCalendarEvent(req.user._id, updated.googleCalendarEventId)
+          updated.googleCalendarEventId = null
+          updated.syncedToCalendar = false
+          await updated.save()
+        }
+      }
+    } catch (syncError) {
+      console.error("Failed to sync task to calendar:", syncError)
+      // Don't fail the task update if calendar sync fails
+    }
+
     res.json(updated)
   } catch (err) {
     console.error("Error updating task:", err.message)
@@ -83,6 +133,17 @@ export const deleteTask = async (req, res) => {
       userId: req.user._id,
     })
     if (!deleted) return res.status(404).json({ error: "Task not found" })
+
+    // Remove from Google Calendar if synced
+    try {
+      if (deleted.googleCalendarEventId) {
+        await deleteCalendarEvent(req.user._id, deleted.googleCalendarEventId)
+      }
+    } catch (syncError) {
+      console.error("Failed to delete event from calendar:", syncError)
+      // Don't fail the task deletion if calendar sync fails
+    }
+
     res.json({ message: "Task deleted" })
   } catch (err) {
     res.status(500).json({ error: "Failed to delete task" })
@@ -138,5 +199,53 @@ export const getTaskAnalytics = async (req, res) => {
   } catch (err) {
     console.error("Analytics Error:", err)
     res.status(500).json({ message: "Failed to load task analytics" })
+  }
+}
+
+// 8. Start/Stop Timer
+export const startTaskTimer = async (req, res) => {
+  try {
+    const task = await Task.findOne({ _id: req.params.id, userId: req.user._id })
+    if (!task) return res.status(404).json({ error: "Task not found" })
+
+    if (task.activeTimerStartedAt) {
+      return res.status(400).json({ error: "Timer already running" })
+    }
+
+    task.activeTimerStartedAt = new Date()
+    await task.save()
+    res.json(task)
+  } catch (err) {
+    console.error("Start timer error:", err)
+    res.status(500).json({ error: "Failed to start timer" })
+  }
+}
+
+export const stopTaskTimer = async (req, res) => {
+  try {
+    const task = await Task.findOne({ _id: req.params.id, userId: req.user._id })
+    if (!task) return res.status(404).json({ error: "Task not found" })
+
+    if (!task.activeTimerStartedAt) {
+      return res.status(400).json({ error: "No running timer" })
+    }
+
+    const startedAt = task.activeTimerStartedAt
+    const endedAt = new Date()
+    const durationMs = Math.max(0, endedAt.getTime() - new Date(startedAt).getTime())
+
+    task.timeSessions.push({ startedAt, endedAt, durationMs })
+    // Ensure Mongoose tracks nested array changes in all cases
+    if (typeof task.markModified === 'function') {
+      task.markModified('timeSessions')
+    }
+    task.totalTimeMs = (task.totalTimeMs || 0) + durationMs
+    task.activeTimerStartedAt = null
+    await task.save()
+
+    res.json(task)
+  } catch (err) {
+    console.error("Stop timer error:", err)
+    res.status(500).json({ error: "Failed to stop timer" })
   }
 }

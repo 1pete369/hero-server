@@ -10,6 +10,9 @@ import uploadRoutes from "./routes/upload.route.js";
 import noteRoutes from "./routes/note.route.js";
 import workoutRoutes from "./routes/workout.route.js";
 import financeRoutes from "./routes/finance.route.js";
+import financePlannerRoutes from "./routes/financePlanner.route.js";
+import calendarRoutes from "./routes/calendar.route.js";
+import onboardingRoutes from "./routes/onboarding.route.js";
 
 dotenv.config();
 
@@ -58,8 +61,11 @@ app.use("/api/goal", goalRoutes);
 app.use("/api/habit", habitRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/finance", financeRoutes);
+app.use("/api/finance-planner", financePlannerRoutes);
 app.use("/api/note", noteRoutes);
 app.use("/api/workout", workoutRoutes);
+app.use("/api/calendar", calendarRoutes);
+app.use("/api/onboarding", onboardingRoutes);
 
 // 404
 app.use((req, res) => {

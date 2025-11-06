@@ -77,6 +77,37 @@ const taskSchema = new mongoose.Schema(
       enum: ["blue", "green", "purple", "orange", "red", "pink", "indigo", "teal", "yellow", "gray"],
       default: "blue",
     },
+    // --- Google Calendar Integration ---
+    googleCalendarEventId: {
+      type: String,
+      default: null,
+    },
+    syncedToCalendar: {
+      type: Boolean,
+      default: false,
+    },
+  // --- Focus Timer ---
+  timeSessions: {
+    type: [
+      new mongoose.Schema(
+        {
+          startedAt: { type: Date, required: true },
+          endedAt: { type: Date, default: null },
+          durationMs: { type: Number, default: 0 },
+        },
+        { _id: false }
+      ),
+    ],
+    default: [],
+  },
+  activeTimerStartedAt: {
+    type: Date,
+    default: null,
+  },
+  totalTimeMs: {
+    type: Number,
+    default: 0,
+  },
   },
   { timestamps: true }
 )

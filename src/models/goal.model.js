@@ -56,6 +56,11 @@ const goalSchema = new mongoose.Schema(
       type: String,
       default: "General",
     },
+    color: {
+      type: String,
+      enum: ["blue", "green", "purple", "orange", "red", "pink", "indigo", "teal", "yellow", "gray"],
+      default: "blue",
+    },
     missedDays: {
       type: Number,
       default: 0,
